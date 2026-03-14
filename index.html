@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CodeVis — Live Codebase Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  :root{
+    --bg:        #0d1117;
+    --bg2:       #161b22;
+    --bg3:       #21262d;
+    --border:    #30363d;
+    --border2:   #21262d;
+    --text:      #e6edf3;
+    --text2:     #8b949e;
+    --text3:     #6e7681;
+    --blue:      #388bfd;
+    --blue-dim:  #1f3a5c;
+    --green:     #3fb950;
+    --orange:    #ffa657;
+    --red:       #f85149;
+  }
+
+  html,body{
+    height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Instrument Sans',system-ui,sans-serif;
+    font-size:14px;
+    overflow:hidden;
+  }
+
+  /* ── Layout ───────────────────────────────────────── */
+  #root{
+    display:grid;
+    grid-template-rows:48px 1fr 36px;
+    grid-template-columns:1fr 260px;
+    grid-template-areas:
+      "topbar topbar"
+      "graph  panel"
+      "toolbar toolbar";
+    height:100vh;
+    width:100vw;
+  }
+
+  /* ── Topbar ───────────────────────────────────────── */
+  #topbar{
+    grid-area:topbar;
+    display:flex;align-items:center;gap:12px;
+    padding:0 16px;
+    background:var(--bg2);
+    border-bottom:1px solid var(--border2);
+  }
+
+  .logo{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;font-weight:600;
+    color:var(--blue);
+    letter-spacing:-.3px;
+    flex-shrink:0;
+  }
+
+  .logo span{color:var(--text2);font-weight:400}
+
+  #url-wrap{
+    flex:1;
+    display:flex;align-items:center;gap:0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    overflow:hidden;
+    max-width:540px;
+  }
+
+  #url-wrap svg{
+    width:14px;height:14px;
+    margin:0 8px 0 10px;
+    flex-shrink:0;
+    opacity:.4;
+  }
+
+  #url-input{
+    flex:1;background:transparent;border:none;outline:none;
+    color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+    padding:7px 0;
+  }
+
+  #url-input::placeholder{color:var(--text3)}
+
+  #analyze-btn{
+    padding:0 14px;height:100%;
+    background:var(--bg3);border:none;border-left:1px solid var(--border);
+    color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;
+    white-space:nowrap;transition:all .15s;
+    font-family:'Instrument Sans',sans-serif;
+  }
+
+  #analyze-btn:hover{background:var(--blue);color:#fff}
+  #analyze-btn:disabled{opacity:.4;cursor:not-allowed;background:var(--bg3);color:var(--text2)}
+
+  .topbar-right{
+    display:flex;align-items:center;gap:8px;
+    margin-left:auto;
+  }
+
+  .badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;font-weight:600;
+    padding:3px 7px;border-radius:4px;
+    background:var(--bg3);color:var(--text2);
+    border:1px solid var(--border);
+    letter-spacing:.02em;
+  }
+
+  .badge.live{
+    color:var(--green);border-color:#1e3a25;background:#0d2216;
+    animation:pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot{
+    0%,100%{opacity:1}50%{opacity:.6}
+  }
+
+  /* ── Graph canvas ─────────────────────────────────── */
+  #graph-area{
+    grid-area:graph;
+    position:relative;
+    overflow:hidden;
+    background:var(--bg);
+  }
+
+  #graph-canvas{
+    display:block;width:100%;height:100%;
+    cursor:grab;
+  }
+
+  #graph-canvas:active{cursor:grabbing}
+
+  /* Overlay shown before analysis */
+  #intro-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:20px;
+    background:var(--bg);
+  }
+
+  .intro-title{
+    font-size:22px;font-weight:600;
+    color:var(--text);letter-spacing:-.4px;
+  }
+
+  .intro-sub{
+    font-size:13px;color:var(--text2);
+    text-align:center;max-width:340px;line-height:1.6;
+  }
+
+  .intro-repos{
+    display:flex;flex-direction:column;gap:6px;width:320px;
+  }
+
+  .repo-chip{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 12px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+    cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:12px;
+    transition:all .15s;
+    color:var(--text2);
+  }
+
+  .repo-chip:hover{border-color:var(--blue);color:var(--text);background:var(--blue-dim)}
+
+  .repo-chip-meta{font-size:10px;color:var(--text3)}
+
+  /* ── Side panel ───────────────────────────────────── */
+  #panel{
+    grid-area:panel;
+    display:flex;flex-direction:column;
+    background:var(--bg2);
+    border-left:1px solid var(--border2);
+    font-size:12px;
+    overflow:hidden;
+  }
+
+  #panel-head{
+    padding:10px 12px;
+    border-bottom:1px solid var(--border2);
+    font-size:10px;font-weight:600;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text3);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+
+  #panel-body{
+    flex:1;overflow-y:auto;padding:12px;
+    scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  }
+
+  #panel-body::-webkit-scrollbar{width:3px}
+  #panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+  .empty-hint{color:var(--text3);font-size:11px;line-height:1.7;padding-top:4px}
+
+  /* panel sections */
+  .p-filename{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;font-weight:600;
+    margin-bottom:10px;
+    word-break:break-all;
+  }
+
+  .p-lang-row{
+    display:flex;align-items:center;gap:6px;
+    margin-bottom:12px;
+  }
+
+  .p-dot{width:8px;height:8px;border-radius:50%}
+
+  .p-lang-text{font-size:11px;font-weight:600;letter-spacing:.04em}
+
+  .p-hotspot{
+    font-size:10px;padding:2px 6px;border-radius:4px;
+    background:#2d1700;color:var(--orange);
+    border:1px solid #4a2800;
+  }
+
+  .metrics-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:6px;
+    margin-bottom:12px;
+  }
+
+  .metric-card{
+    background:var(--bg3);border-radius:5px;
+    padding:7px 9px;
+  }
+
+  .metric-card .label{font-size:10px;color:var(--text3);margin-bottom:2px}
+  .metric-card .value{font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+  .section-label{
+    font-size:10px;font-weight:600;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--text3);
+    margin-bottom:6px;
+  }
+
+  .cc-track{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:10px}
+  .cc-fill{height:100%;border-radius:2px;transition:width .4s}
+
+  .file-link{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:4px 6px;border-radius:4px;cursor:pointer;
+    transition:background .1s;color:var(--text2);
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+  }
+
+  .file-link:hover{background:var(--bg3);color:var(--text)}
+
+  .arrow-icon{opacity:.4;font-size:10px}
+
+  .impact-box{
+    background:#1a100a;border:1px solid #4a2400;
+    border-radius:6px;padding:10px;margin-top:10px;
+  }
+
+  .impact-box-title{
+    font-size:11px;font-weight:600;color:var(--orange);
+    margin-bottom:6px;
+  }
+
+  .impact-item{
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    color:var(--text3);padding:2px 0;
+  }
+
+  .btn{
+    width:100%;padding:7px;border-radius:5px;cursor:pointer;
+    font-size:11px;font-weight:500;border:1px solid;
+    transition:all .15s;margin-top:10px;
+    font-family:'Instrument Sans',sans-serif;
+  }
+
+  .btn-blue{
+    background:transparent;border-color:var(--blue-dim);color:var(--blue);
+  }
+
+  .btn-blue:hover{background:var(--blue-dim)}
+
+  .btn-dim{
+    background:transparent;border-color:var(--border);color:var(--text2);
+  }
+
+  .btn-dim:hover{background:var(--bg3)}
+
+  /* ── Toolbar ──────────────────────────────────────── */
+  #toolbar{
+    grid-area:toolbar;
+    display:flex;align-items:center;gap:8px;
+    padding:0 14px;
+    background:var(--bg2);
+    border-top:1px solid var(--border2);
+    font-size:11px;
+  }
+
+  .t-label{color:var(--text3)}
+
+  .lang-pill{
+    padding:2px 8px;border-radius:10px;border:1px solid;
+    cursor:pointer;font-size:11px;font-weight:500;
+    transition:all .15s;font-family:'Instrument Sans',sans-serif;
+  }
+
+  .lang-pill.off{opacity:.3}
+
+  #stats{color:var(--text3);margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+  #reset-btn{
+    background:var(--bg3);border:1px solid var(--border);
+    color:var(--text2);padding:3px 9px;border-radius:4px;
+    cursor:pointer;font-size:11px;transition:all .15s;
+    font-family:'Instrument Sans',sans-serif;
+  }
+
+  #reset-btn:hover{background:var(--bg);color:var(--text)}
+
+  /* ── Status bar ───────────────────────────────────── */
+  #statusbar{
+    position:absolute;bottom:0;left:0;right:260px;
+    display:flex;align-items:center;gap:10px;
+    padding:0 14px;height:28px;
+    background:var(--bg2);
+    border-top:1px solid var(--border2);
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text3);z-index:10;
+  }
+
+  #progress-track{
+    width:140px;height:2px;
+    background:var(--bg3);border-radius:1px;overflow:hidden;
+  }
+
+  #progress-fill{
+    height:100%;background:var(--blue);
+    width:0%;transition:width .3s ease;
+  }
+
+  /* ── Legend ───────────────────────────────────────── */
+  #legend{
+    position:absolute;top:12px;left:12px;
+    background:var(--bg2);border:1px solid var(--border2);
+    border-radius:6px;padding:8px 10px;
+    font-size:10px;color:var(--text3);
+    pointer-events:none;
+    opacity:0;transition:opacity .3s;
+  }
+
+  #legend.show{opacity:1}
+
+  .legend-row{
+    display:flex;align-items:center;gap:6px;
+    padding:2px 0;
+  }
+
+  .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+  /* ── Hover tooltip ────────────────────────────────── */
+  #tooltip{
+    position:absolute;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:5px;padding:6px 9px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text);pointer-events:none;
+    opacity:0;transition:opacity .1s;
+    white-space:nowrap;z-index:20;
+  }
+</style>
+</head>
+<body>
+
+<div id="root">
+
+  <!-- Topbar -->
+  <header id="topbar">
+    <div class="logo">Code<span>Vis</span></div>
+
+    <div id="url-wrap">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3 3"/>
+      </svg>
+      <input id="url-input" type="text"
+        value="https://github.com/facebook/react"
+        placeholder="https://github.com/owner/repo"
+        onkeydown="if(event.key==='Enter')startAnalysis()"/>
+      <button id="analyze-btn" onclick="startAnalysis()">Analyze →</button>
+    </div>
+
+    <div class="topbar-right">
+      <span class="badge live" id="live-badge" style="display:none">● live</span>
+      <span class="badge">Phase 1 MVP</span>
+    </div>
+  </header>
+
+  <!-- Graph -->
+  <main id="graph-area">
+    <canvas id="graph-canvas"></canvas>
+
+    <div id="intro-overlay">
+      <div style="text-align:center">
+        <div class="intro-title">Understand any codebase<br/>in seconds</div>
+        <div class="intro-sub" style="margin-top:8px">
+          Load a repo. Watch the dependency graph build live.<br/>
+          Click any file to trace what breaks if you change it.
+        </div>
+      </div>
+      <div class="intro-repos">
+        <div class="repo-chip" onclick="loadPreset('react')">
+          <span>facebook/react</span>
+          <span class="repo-chip-meta">247 files · TS + JS</span>
+        </div>
+        <div class="repo-chip" onclick="loadPreset('express')">
+          <span>expressjs/express</span>
+          <span class="repo-chip-meta">83 files · JS</span>
+        </div>
+        <div class="repo-chip" onclick="loadPreset('api')">
+          <span>codevis/api-gateway</span>
+          <span class="repo-chip-meta">31 files · TS</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusbar" style="display:none">
+      <span id="status-text">Ready</span>
+      <div id="progress-track"><div id="progress-fill"></div></div>
+    </div>
+
+    <div id="legend">
+      <div class="legend-row"><div class="legend-dot" style="background:#3b82f6"></div>TypeScript</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f59e0b"></div>JavaScript</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#10b981"></div>Python</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#06b6d4"></div>Go</div>
+      <div style="margin-top:5px;padding-top:5px;border-top:1px solid #21262d;color:#4a5562">
+        <div>Node size = LOC</div>
+        <div style="margin-top:2px">● = hotspot (CC &gt; 15)</div>
+      </div>
+    </div>
+
+    <div id="tooltip"></div>
+  </main>
+
+  <!-- Panel -->
+  <aside id="panel">
+    <div id="panel-head">
+      <span>Inspector</span>
+      <span id="node-count" style="font-size:10px;color:#6e7681"></span>
+    </div>
+    <div id="panel-body">
+      <p class="empty-hint">Click any node to inspect its dependencies, complexity score, and blast radius.</p>
+    </div>
+  </aside>
+
+  <!-- Toolbar -->
+  <footer id="toolbar">
+    <span class="t-label">Language</span>
+    <span class="lang-pill" data-lang="ts" style="border-color:#3b82f6;color:#3b82f6"   onclick="toggleLang(this)">TS</span>
+    <span class="lang-pill" data-lang="js" style="border-color:#f59e0b;color:#f59e0b"   onclick="toggleLang(this)">JS</span>
+    <span class="lang-pill" data-lang="py" style="border-color:#10b981;color:#10b981"   onclick="toggleLang(this)">PY</span>
+    <span class="lang-pill" data-lang="go" style="border-color:#06b6d4;color:#06b6d4"   onclick="toggleLang(this)">GO</span>
+    <span style="width:1px;height:16px;background:#21262d;margin:0 2px"></span>
+    <span class="t-label">Complexity</span>
+    <input type="range" id="cc-slider" min="1" max="30" value="30" style="width:80px"
+      oninput="ccMax=+this.value;document.getElementById('cc-val').textContent=this.value"/>
+    <span id="cc-val" style="color:#ffa657;font-family:'JetBrains Mono',monospace;font-size:11px;min-width:20px">30</span>
+    <span id="stats" style="display:none"></span>
+    <button id="reset-btn" onclick="resetCamera()">Reset view</button>
+  </footer>
+
+</div>
+
+<script>
+// ── Data ────────────────────────────────────────────────────
+
+const LANG_COLORS = {ts:'#3b82f6',js:'#f59e0b',py:'#10b981',go:'#06b6d4',java:'#f97316',unknown:'#6b7280'};
+
+const PRESETS = {
+  react: {
+    url:'https://github.com/facebook/react',
+    nodes:[
+      {id:'packages/react/index.js',         lang:'js', loc:14,  complexity:1,  label:'react/index.js',       x:0,    y:0},
+      {id:'packages/react/src/React.js',     lang:'js', loc:76,  complexity:4,  label:'React.js',             x:130,  y:-60},
+      {id:'packages/react-dom/index.js',     lang:'js', loc:22,  complexity:2,  label:'react-dom/index.js',   x:-120, y:-40},
+      {id:'packages/react-dom/src/ReactDOM', lang:'js', loc:312, complexity:14, label:'ReactDOM.js',          x:-220, y:-140},
+      {id:'packages/react-reconciler/src/R', lang:'js', loc:890, complexity:28, label:'ReactFiber.js',        x:-80,  y:-220},
+      {id:'packages/scheduler/src/Sched',    lang:'js', loc:445, complexity:19, label:'Scheduler.js',         x:80,   y:-200},
+      {id:'packages/react/src/ReactHooks',   lang:'js', loc:134, complexity:6,  label:'ReactHooks.js',        x:230,  y:40},
+      {id:'packages/react/src/ReactContext', lang:'js', loc:98,  complexity:5,  label:'ReactContext.js',      x:160,  y:120},
+      {id:'packages/react/src/ReactMemo',    lang:'js', loc:42,  complexity:2,  label:'ReactMemo.js',         x:300,  y:-30},
+      {id:'packages/shared/ReactTypes',      lang:'js', loc:67,  complexity:1,  label:'ReactTypes.js',        x:0,    y:200},
+      {id:'packages/shared/ReactSymbols',    lang:'js', loc:55,  complexity:1,  label:'ReactSymbols.js',      x:180,  y:200},
+      {id:'packages/shared/ReactFeatureFlags',lang:'js',loc:89,  complexity:2,  label:'FeatureFlags.js',      x:-160, y:180},
+      {id:'packages/react-dom/src/events/R', lang:'js', loc:567, complexity:22, label:'ReactEvents.js',       x:-300, y:-60},
+      {id:'packages/react-reconciler/ReactF',lang:'js', loc:234, complexity:11, label:'ReactFiberHooks.js',   x:-180, y:-300},
+      {id:'packages/react-reconciler/Work',  lang:'js', loc:123, complexity:8,  label:'ReactWorkLoop.js',     x:50,   y:-330},
+    ],
+    edges:[
+      ['packages/react/index.js','packages/react/src/React.js'],
+      ['packages/react/src/React.js','packages/react/src/ReactHooks'],
+      ['packages/react/src/React.js','packages/react/src/ReactContext'],
+      ['packages/react/src/React.js','packages/react/src/ReactMemo'],
+      ['packages/react-dom/index.js','packages/react-dom/src/ReactDOM'],
+      ['packages/react-dom/src/ReactDOM','packages/react-reconciler/src/R'],
+      ['packages/react-dom/src/ReactDOM','packages/react-dom/src/events/R'],
+      ['packages/react-reconciler/src/R','packages/scheduler/src/Sched'],
+      ['packages/react-reconciler/src/R','packages/react-reconciler/ReactF'],
+      ['packages/react-reconciler/src/R','packages/react-reconciler/Work'],
+      ['packages/react-reconciler/ReactF','packages/shared/ReactTypes'],
+      ['packages/react/src/ReactHooks','packages/shared/ReactTypes'],
+      ['packages/react/src/ReactContext','packages/shared/ReactSymbols'],
+      ['packages/react-dom/src/events/R','packages/shared/ReactSymbols'],
+      ['packages/shared/ReactFeatureFlags','packages/react-reconciler/src/R'],
+    ]
+  },
+
+  express: {
+    url:'https://github.com/expressjs/express',
+    nodes:[
+      {id:'index.js',              lang:'js', loc:12,  complexity:1,  label:'index.js',         x:0,    y:0},
+      {id:'lib/express.js',        lang:'js', loc:106, complexity:5,  label:'express.js',       x:120,  y:-70},
+      {id:'lib/application.js',    lang:'js', loc:628, complexity:24, label:'application.js',   x:-60,  y:-180},
+      {id:'lib/router/index.js',   lang:'js', loc:534, complexity:21, label:'router/index.js',  x:200,  y:-160},
+      {id:'lib/router/route.js',   lang:'js', loc:262, complexity:13, label:'route.js',         x:340,  y:-60},
+      {id:'lib/router/layer.js',   lang:'js', loc:115, complexity:8,  label:'layer.js',         x:320,  y:80},
+      {id:'lib/request.js',        lang:'js', loc:474, complexity:18, label:'request.js',       x:-200, y:-60},
+      {id:'lib/response.js',       lang:'js', loc:1069,complexity:31, label:'response.js',      x:-300, y:60},
+      {id:'lib/middleware/init.js',lang:'js', loc:42,  complexity:3,  label:'init.js',          x:60,   y:120},
+      {id:'lib/middleware/query.js',lang:'js',loc:36,  complexity:2,  label:'query.js',         x:180,  y:100},
+      {id:'lib/utils.js',          lang:'js', loc:234, complexity:11, label:'utils.js',         x:-100, y:140},
+    ],
+    edges:[
+      ['index.js','lib/express.js'],
+      ['lib/express.js','lib/application.js'],
+      ['lib/express.js','lib/router/index.js'],
+      ['lib/application.js','lib/router/index.js'],
+      ['lib/application.js','lib/middleware/init.js'],
+      ['lib/application.js','lib/middleware/query.js'],
+      ['lib/router/index.js','lib/router/route.js'],
+      ['lib/router/index.js','lib/router/layer.js'],
+      ['lib/router/route.js','lib/router/layer.js'],
+      ['lib/application.js','lib/request.js'],
+      ['lib/application.js','lib/response.js'],
+      ['lib/response.js','lib/utils.js'],
+      ['lib/request.js','lib/utils.js'],
+    ]
+  },
+
+  api: {
+    url:'https://github.com/codevis/api-gateway',
+    nodes:[
+      {id:'src/server.ts',          lang:'ts', loc:58,  complexity:3,  label:'server.ts',        x:0,    y:0},
+      {id:'src/app.ts',             lang:'ts', loc:72,  complexity:4,  label:'app.ts',           x:140,  y:-60},
+      {id:'src/routes/repos.ts',    lang:'ts', loc:198, complexity:9,  label:'repos.ts',         x:280,  y:-120},
+      {id:'src/routes/analysis.ts', lang:'ts', loc:142, complexity:7,  label:'analysis.ts',      x:280,  y:40},
+      {id:'src/routes/jobs.ts',     lang:'ts', loc:48,  complexity:3,  label:'jobs.ts',          x:140,  y:120},
+      {id:'src/ws/handler.ts',      lang:'ts', loc:167, complexity:8,  label:'ws/handler.ts',    x:-80,  y:-160},
+      {id:'src/middleware/rl.ts',   lang:'ts', loc:89,  complexity:5,  label:'rate-limit.ts',    x:-200, y:-60},
+      {id:'src/lib/postgres.ts',    lang:'ts', loc:44,  complexity:2,  label:'postgres.ts',      x:-60,  y:140},
+      {id:'src/lib/neo4j.ts',       lang:'ts', loc:38,  complexity:2,  label:'neo4j.ts',         x:60,   y:200},
+      {id:'src/lib/redis.ts',       lang:'ts', loc:32,  complexity:2,  label:'redis.ts',         x:-180, y:100},
+      {id:'src/lib/queue.ts',       lang:'ts', loc:28,  complexity:1,  label:'queue.ts',         x:-280, y:0},
+    ],
+    edges:[
+      ['src/server.ts','src/app.ts'],
+      ['src/server.ts','src/ws/handler.ts'],
+      ['src/app.ts','src/routes/repos.ts'],
+      ['src/app.ts','src/routes/analysis.ts'],
+      ['src/app.ts','src/routes/jobs.ts'],
+      ['src/app.ts','src/middleware/rl.ts'],
+      ['src/routes/repos.ts','src/lib/postgres.ts'],
+      ['src/routes/repos.ts','src/lib/neo4j.ts'],
+      ['src/routes/repos.ts','src/lib/queue.ts'],
+      ['src/routes/analysis.ts','src/lib/neo4j.ts'],
+      ['src/routes/analysis.ts','src/lib/redis.ts'],
+      ['src/middleware/rl.ts','src/lib/redis.ts'],
+      ['src/ws/handler.ts','src/lib/redis.ts'],
+      ['src/ws/handler.ts','src/lib/queue.ts'],
+    ]
+  }
+};
+
+// ── State ────────────────────────────────────────────────────
+let canvas, ctx;
+let nodes = [], edges = [];
+let selectedNode = null;
+let camX = 0, camY = 0, camScale = 1;
+let dragging = false, dragStartX = 0, dragStartY = 0, didDrag = false;
+let mouseX = 0, mouseY = 0;
+let activeLangs = new Set(['ts','js','py','go','java','unknown']);
+let ccMax = 30;
+let layoutRunning = false;
+let animId = null;
+
+// ── Canvas setup ─────────────────────────────────────────────
+function initCanvas() {
+  canvas = document.getElementById('graph-canvas');
+  ctx = canvas.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  canvas.addEventListener('mousedown',  onDown);
+  canvas.addEventListener('mousemove',  onMove);
+  canvas.addEventListener('mouseup',    onUp);
+  canvas.addEventListener('click',      onClick);
+  canvas.addEventListener('wheel',      onWheel, {passive:false});
+  canvas.addEventListener('mouseleave', () => { hideTooltip(); });
+  if (!animId) animId = requestAnimationFrame(draw);
+}
+
+function resizeCanvas() {
+  const area = document.getElementById('graph-area');
+  canvas.width  = area.clientWidth;
+  canvas.height = area.clientHeight;
+}
+
+// ── Coordinate transforms ────────────────────────────────────
+const w2s = (wx, wy) => [
+  (wx + camX) * camScale + canvas.width  / 2,
+  (wy + camY) * camScale + canvas.height / 2,
+];
+const s2w = (sx, sy) => [
+  (sx - canvas.width  / 2) / camScale - camX,
+  (sy - canvas.height / 2) / camScale - camY,
+];
+
+// ── Layout (ForceAtlas2-lite) ─────────────────────────────────
+function runLayout() {
+  layoutRunning = true;
+  let iter = 0;
+  function tick() {
+    if (iter++ > 400) { layoutRunning = false; return; }
+    nodes.forEach(n => { n.vx *= 0.82; n.vy *= 0.82; });
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dx = b.px - a.px, dy = b.py - a.py;
+        const d = Math.sqrt(dx*dx + dy*dy) || 1;
+        const f = 1400 / (d * d);
+        a.vx -= dx/d*f; a.vy -= dy/d*f;
+        b.vx += dx/d*f; b.vy += dy/d*f;
+      }
+    }
+    edges.forEach(e => {
+      const a = nodes.find(n => n.id === e.s);
+      const b = nodes.find(n => n.id === e.t);
+      if (!a || !b) return;
+      const dx = b.px - a.px, dy = b.py - a.py;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      const f = (d - 90) * 0.014;
+      a.vx += dx/d*f; a.vy += dy/d*f;
+      b.vx -= dx/d*f; b.vy -= dy/d*f;
+    });
+    nodes.forEach(n => {
+      n.vx -= n.px * 0.003; n.vy -= n.py * 0.003;
+      n.px += n.vx; n.py += n.vy;
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ── Draw ──────────────────────────────────────────────────────
+function draw() {
+  animId = requestAnimationFrame(draw);
+  if (!canvas || !ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!nodes.length) return;
+
+  const hovered = getNodeAt(mouseX, mouseY);
+  const neighbourSet = new Set();
+  if (hovered) {
+    edges.forEach(e => {
+      if (e.s === hovered.id || e.t === hovered.id) {
+        neighbourSet.add(e.s); neighbourSet.add(e.t);
+      }
+    });
+  }
+
+  const visNodes = nodes.filter(n => activeLangs.has(n.lang) && n.complexity <= ccMax);
+  const visIds   = new Set(visNodes.map(n => n.id));
+  const visEdges = edges.filter(e => visIds.has(e.s) && visIds.has(e.t));
+
+  // Draw edges
+  visEdges.forEach(e => {
+    const a = nodes.find(n => n.id === e.s);
+    const b = nodes.find(n => n.id === e.t);
+    if (!a || !b) return;
+    const [ax, ay] = w2s(a.px, a.py);
+    const [bx, by] = w2s(b.px, b.py);
+    const lit = hovered && (neighbourSet.has(e.s) || neighbourSet.has(e.t));
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    ctx.strokeStyle = lit ? '#388bfd55' : '#1e2535';
+    ctx.lineWidth   = lit ? 1.5 : 0.6;
+    ctx.stroke();
+
+    // Arrow head on lit edges
+    if (lit) {
+      const angle = Math.atan2(by - ay, bx - ax);
+      const ar = (nodes.find(n => n.id === e.t)?.size || 6) * camScale + 3;
+      const tx = bx - Math.cos(angle) * ar;
+      const ty = by - Math.sin(angle) * ar;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - 7*Math.cos(angle-0.4), ty - 7*Math.sin(angle-0.4));
+      ctx.lineTo(tx - 7*Math.cos(angle+0.4), ty - 7*Math.sin(angle+0.4));
+      ctx.closePath();
+      ctx.fillStyle = '#388bfd';
+      ctx.fill();
+    }
+  });
+
+  // Draw nodes
+  visNodes.forEach(n => {
+    const [sx, sy] = w2s(n.px, n.py);
+    const r = n.size * camScale;
+    if (sx < -r-20 || sx > canvas.width+r+20 || sy < -r-20 || sy > canvas.height+r+20) return;
+
+    const isSel  = selectedNode?.id === n.id;
+    const isHov  = hovered?.id === n.id;
+    const isNeigh = hovered && neighbourSet.has(n.id);
+    const isDim  = hovered && !isHov && !isNeigh;
+    const col    = LANG_COLORS[n.lang] || '#6b7280';
+
+    // Glow for selected
+    if (isSel) {
+      ctx.shadowColor = col;
+      ctx.shadowBlur  = 14 * camScale;
+    }
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, isSel ? r*1.6 : isHov ? r*1.25 : r, 0, Math.PI*2);
+    ctx.fillStyle = isDim ? '#1a1f27' : col + (isSel ? 'ff' : isHov ? 'ee' : 'bb');
+    ctx.fill();
+
+    if (isSel) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 2;
+      ctx.stroke();
+      ctx.shadowBlur  = 0;
+    } else if (isHov) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+
+    // Hotspot dot
+    if (n.complexity > 15 && !isDim) {
+      ctx.beginPath();
+      ctx.arc(sx + r*0.65, sy - r*0.65, Math.max(2, 3*camScale), 0, Math.PI*2);
+      ctx.fillStyle = '#ffa657';
+      ctx.fill();
+    }
+
+    // Label
+    if (camScale > 0.6 && !isDim) {
+      const fs = Math.round(Math.min(13, Math.max(9, 10 * camScale)));
+      ctx.font = `${fs}px 'JetBrains Mono',monospace`;
+      ctx.fillStyle = isHov || isSel ? '#e6edf3' : '#6e7681';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, sx, sy + r + fs + 2);
+    }
+  });
+}
+
+// ── Node picking ──────────────────────────────────────────────
+function getNodeAt(mx, my) {
+  if (!nodes.length) return null;
+  const [wx, wy] = s2w(mx, my);
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (!activeLangs.has(n.lang) || n.complexity > ccMax) continue;
+    const dx = n.px - wx, dy = n.py - wy;
+    if (Math.sqrt(dx*dx + dy*dy) < n.size + 4) return n;
+  }
+  return null;
+}
+
+// ── Mouse handlers ────────────────────────────────────────────
+function onDown(e) {
+  dragging = true; didDrag = false;
+  dragStartX = e.offsetX; dragStartY = e.offsetY;
+}
+
+function onMove(e) {
+  mouseX = e.offsetX; mouseY = e.offsetY;
+  if (dragging) {
+    camX += (e.offsetX - dragStartX) / camScale;
+    camY += (e.offsetY - dragStartY) / camScale;
+    dragStartX = e.offsetX; dragStartY = e.offsetY;
+    didDrag = true;
+  }
+  const h = getNodeAt(e.offsetX, e.offsetY);
+  canvas.style.cursor = h ? 'pointer' : dragging ? 'grabbing' : 'grab';
+  if (h) showTooltip(h, e.offsetX, e.offsetY);
+  else   hideTooltip();
+}
+
+function onUp() { dragging = false; }
+
+function onClick(e) {
+  if (didDrag) return;
+  const n = getNodeAt(e.offsetX, e.offsetY);
+  if (n) { selectedNode = n; renderPanel(n); }
+  else   { selectedNode = null; renderPanelEmpty(); }
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  const [wx, wy] = s2w(e.offsetX, e.offsetY);
+  camScale = Math.max(0.12, Math.min(5, camScale * factor));
+  const [nx, ny] = w2s(wx, wy);
+  camX += (e.offsetX - nx) / camScale;
+  camY += (e.offsetY - ny) / camScale;
+}
+
+// ── Tooltip ───────────────────────────────────────────────────
+function showTooltip(n, mx, my) {
+  const t = document.getElementById('tooltip');
+  t.textContent = `${n.label}  ·  LOC ${n.loc}  ·  CC ${n.complexity}`;
+  t.style.left  = (mx + 12) + 'px';
+  t.style.top   = (my - 10) + 'px';
+  t.style.opacity = '1';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.opacity = '0';
+}
+
+// ── Analysis pipeline ─────────────────────────────────────────
+function loadPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('url-input').value = p.url;
+  startAnalysis(name);
+}
+
+function startAnalysis(preset) {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  nodes = []; edges = []; selectedNode = null;
+  renderPanelEmpty();
+  document.getElementById('intro-overlay').style.display = 'none';
+  document.getElementById('statusbar').style.display = 'flex';
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('live-badge').style.display = 'none';
+
+  const steps = [
+    [8,  'Cloning repository…'],
+    [20, 'Scanning source files…'],
+    [36, 'Parsing AST with tree-sitter…'],
+    [52, 'Extracting dependency edges…'],
+    [66, 'Writing to Neo4j…'],
+    [80, 'Building search index…'],
+    [92, 'Resolving import paths…'],
+    [100,'Analysis complete ✓'],
+  ];
+
+  let i = 0;
+  function nextStep() {
+    if (i >= steps.length) {
+      setTimeout(() => loadGraph(preset || 'react'), 200);
+      return;
+    }
+    const [pct, msg] = steps[i++];
+    setStatus(msg, pct);
+    setTimeout(nextStep, pct < 60 ? 290 : 210);
+  }
+  nextStep();
+}
+
+function setStatus(msg, pct) {
+  document.getElementById('status-text').textContent = msg;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function loadGraph(presetName) {
+  const p = PRESETS[presetName] || PRESETS.react;
+  nodes = p.nodes.map(n => ({
+    ...n,
+    px: n.x, py: n.y, vx: 0, vy: 0,
+    size: Math.max(5, Math.sqrt(n.loc) * 1.4),
+  }));
+  edges = p.edges.map(([s, t]) => ({ s, t }));
+
+  document.getElementById('stats').style.display = 'inline';
+  document.getElementById('stats').textContent = nodes.length + ' files · ' + edges.length + ' edges';
+  document.getElementById('node-count').textContent = nodes.length + ' nodes';
+  document.getElementById('live-badge').style.display = 'inline';
+  document.getElementById('legend').classList.add('show');
+  document.getElementById('analyze-btn').disabled = false;
+
+  setStatus('Graph ready', 100);
+  setTimeout(() => document.getElementById('statusbar').style.display = 'none', 1500);
+
+  runLayout();
+  resetCamera();
+}
+
+// ── Camera ────────────────────────────────────────────────────
+function resetCamera() { camX = 0; camY = 0; camScale = 1; }
+
+function panToNode(n, done) {
+  const steps = 24;
+  const tx = -n.px, ty = -n.py;
+  const dx = (tx - camX) / steps, dy = (ty - camY) / steps;
+  let i = 0;
+  function step() {
+    if (i++ < steps) { camX += dx; camY += dy; requestAnimationFrame(step); }
+    else if (done) done();
+  }
+  step();
+}
+
+// ── Language filter ───────────────────────────────────────────
+function toggleLang(el) {
+  const lang = el.dataset.lang;
+  if (activeLangs.has(lang)) { activeLangs.delete(lang); el.classList.add('off'); }
+  else { activeLangs.add(lang); el.classList.remove('off'); }
+}
+
+// ── Panel ─────────────────────────────────────────────────────
+function renderPanelEmpty() {
+  document.getElementById('panel-head').querySelector('span').textContent = 'Inspector';
+  document.getElementById('panel-body').innerHTML =
+    '<p class="empty-hint">Click any node to inspect its dependencies, complexity score, and blast radius.</p>';
+}
+
+function renderPanel(n) {
+  document.getElementById('panel-head').querySelector('span').textContent = n.label;
+  const col     = LANG_COLORS[n.lang] || '#6b7280';
+  const cc      = n.complexity;
+  const ccLabel = cc <= 5 ? 'low' : cc <= 10 ? 'medium' : cc <= 20 ? 'high' : 'critical';
+  const ccColor = cc <= 5 ? '#10b981' : cc <= 10 ? '#f59e0b' : cc <= 20 ? '#f97316' : '#ef4444';
+  const ccPct   = Math.min(100, Math.round(cc / 30 * 100));
+  const imports   = edges.filter(e => e.s === n.id);
+  const importedBy = edges.filter(e => e.t === n.id);
+
+  document.getElementById('panel-body').innerHTML = `
+    <div class="p-filename">${n.label}</div>
+    <div class="p-lang-row">
+      <div class="p-dot" style="background:${col}"></div>
+      <span class="p-lang-text" style="color:${col}">${n.lang.toUpperCase()}</span>
+      ${cc > 15 ? '<span class="p-hotspot">hotspot</span>' : ''}
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="label">Lines of code</div>
+        <div class="value" style="color:var(--text)">${n.loc.toLocaleString()}</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Cyclomatic CC</div>
+        <div class="value" style="color:${ccColor}">${cc}</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Imports</div>
+        <div class="value" style="color:var(--text)">${imports.length}</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Imported by</div>
+        <div class="value" style="color:var(--text)">${importedBy.length}</div>
+      </div>
+    </div>
+
+    <div class="section-label">Complexity — ${ccLabel}</div>
+    <div class="cc-track">
+      <div class="cc-fill" style="width:${ccPct}%;background:${ccColor}"></div>
+    </div>
+
+    ${imports.length ? `
+    <div class="section-label">Imports</div>
+    <div style="margin-bottom:10px">
+      ${imports.map(e => `
+        <div class="file-link" onclick="jumpTo('${e.t}')">
+          <span>${e.t.split('/').at(-1)}</span>
+          <span class="arrow-icon">→</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${importedBy.length ? `
+    <div class="section-label">Imported by</div>
+    <div style="margin-bottom:10px">
+      ${importedBy.map(e => `
+        <div class="file-link" onclick="jumpTo('${e.s}')">
+          <span>${e.s.split('/').at(-1)}</span>
+          <span class="arrow-icon">←</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <button class="btn btn-blue" onclick="showImpact('${n.id}')">Run impact analysis ↗</button>
+    <button class="btn btn-dim"  onclick="focusNode('${n.id}')">Focus in graph</button>
+  `;
+}
+
+function jumpTo(id) {
+  const n = nodes.find(x => x.id === id);
+  if (!n) return;
+  selectedNode = n;
+  renderPanel(n);
+  panToNode(n);
+}
+
+function focusNode(id) {
+  const n = nodes.find(x => x.id === id);
+  if (!n) return;
+  panToNode(n, () => { camScale = 2; });
+}
+
+function showImpact(id) {
+  const affected = [];
+  const visited  = new Set([id]);
+  const queue    = [id];
+  while (queue.length) {
+    const cur = queue.shift();
+    edges.filter(e => e.t === cur).forEach(e => {
+      if (!visited.has(e.s)) {
+        visited.add(e.s); affected.push(e.s); queue.push(e.s);
+      }
+    });
+  }
+
+  const box = document.createElement('div');
+  box.className = 'impact-box';
+  box.innerHTML = `
+    <div class="impact-box-title">
+      ${affected.length} file${affected.length !== 1 ? 's' : ''} affected by this change
+    </div>
+    ${affected.length === 0
+      ? '<div class="impact-item" style="color:#6e7681">No dependents found</div>'
+      : affected.slice(0, 10).map(f =>
+          `<div class="impact-item">↳ ${f.split('/').at(-1)}</div>`
+        ).join('') + (affected.length > 10
+          ? `<div class="impact-item" style="color:#6e7681">+ ${affected.length - 10} more…</div>` : '')}
+  `;
+  const body = document.getElementById('panel-body');
+  const existing = body.querySelector('.impact-box');
+  if (existing) existing.replaceWith(box);
+  else body.appendChild(box);
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initCanvas();
+});
+</script>
+</body>
+</html>
