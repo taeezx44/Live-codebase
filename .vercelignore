@@ -5,3 +5,8 @@ docs/
 .vscode/
 *.md
 !README.md
+**/package.json
+!package.json
+pnpm-workspace.yaml
+turbo.json
+biome.json
