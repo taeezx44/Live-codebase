@@ -1,28 +1,17 @@
 {
-  "name": "codevis",
+  "name": "korawit-chuluean",
   "version": "1.0.0",
-  "private": true,
-  "description": "Korawit Chuluean — Live Codebase Visualizer monorepo",
+  "description": "Korawit Chuluean — Live Codebase Visualizer",
+  "main": "index.html",
   "scripts": {
-    "dev":       "turbo dev",
-    "build":     "turbo build",
-    "test":      "turbo test",
-    "typecheck": "turbo typecheck",
-    "lint":      "biome check .",
-    "clean":     "turbo clean"
+    "start": "serve -s .",
+    "build": "echo 'Static site - no build needed'"
   },
-  "workspaces": [
-    "packages/*"
-  ],
-  "devDependencies": {
-    "@biomejs/biome": "^1.8.0",
-    "turbo":          "^2.0.0",
-    "typescript":     "^5.5.0"
+  "dependencies": {
+    "serve": "^14.2.1"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@9.0.0",
   "license": "MIT"
 }
