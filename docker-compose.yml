@@ -1,0 +1,195 @@
+# ============================================================
+# docker-compose.yml  —  Local development stack
+#
+# Services:
+#   postgres   — metadata, file stats, repo records
+#   neo4j      — dependency graph (nodes + edges)
+#   redis      — BullMQ queue + search index cache
+#   api        — Hono API gateway  (port 4000)
+#   worker     — BullMQ worker     (no public port)
+#   web        — Next.js frontend  (port 3000)
+#
+# Usage:
+#   docker compose up -d          # start infra only (db + redis)
+#   docker compose --profile app up  # start everything
+#
+# For active development, run api/worker/web with pnpm dev
+# (hot-reload) and only use Compose for infrastructure.
+# ============================================================
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: codevis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       codevis
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d codevis"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+    networks:
+      - codevis
+
+  # ── Neo4j ───────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: codevis-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH:                         neo4j/password
+      NEO4J_PLUGINS:                      '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      # Memory — tune these for your machine
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size:     1G
+      NEO4J_server_memory_pagecache__size:    512m
+    ports:
+      - "7474:7474"   # Neo4j Browser UI
+      - "7687:7687"   # Bolt protocol
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./migrations/neo4j:/var/lib/neo4j/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout:  10s
+      retries:  20
+      start_period: 30s   # Neo4j takes a while to start
+    networks:
+      - codevis
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: codevis-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  3s
+      retries:  10
+    networks:
+      - codevis
+
+  # ── RedisInsight (Redis GUI) — dev convenience ──────────────
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: codevis-redis-insight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    networks:
+      - codevis
+    profiles:
+      - tools   # only starts with: docker compose --profile tools up
+
+  # ── API Gateway ─────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: codevis-api
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT:            4000
+      NODE_ENV:        development
+      DATABASE_URL:    postgres://postgres:postgres@postgres:5432/codevis
+      NEO4J_URI:       bolt://neo4j:7687
+      NEO4J_USER:      neo4j
+      NEO4J_PASSWORD:  password
+      REDIS_URL:       redis://redis:6379
+      CORS_ORIGINS:    http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j:    { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    volumes:
+      - /tmp/repos:/tmp/repos   # shared with worker
+    networks:
+      - codevis
+    profiles:
+      - app
+
+  # ── Worker ──────────────────────────────────────────────────
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: codevis-worker
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NODE_ENV:           development
+      DATABASE_URL:       postgres://postgres:postgres@postgres:5432/codevis
+      NEO4J_URI:          bolt://neo4j:7687
+      NEO4J_USER:         neo4j
+      NEO4J_PASSWORD:     password
+      REDIS_URL:          redis://redis:6379
+      CLONE_BASE_DIR:     /tmp/repos
+      WORKER_CONCURRENCY: 3
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j:    { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    volumes:
+      - /tmp/repos:/tmp/repos
+    networks:
+      - codevis
+    profiles:
+      - app
+
+  # ── Next.js Frontend ─────────────────────────────────────────
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: codevis-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL:  ws://localhost:4000/ws
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - codevis
+    profiles:
+      - app
+
+# ── Volumes ──────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+
+# ── Networks ─────────────────────────────────────────────────
+networks:
+  codevis:
+    driver: bridge

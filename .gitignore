@@ -1,0 +1,47 @@
+# ── Build outputs ────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Turbo ────────────────────────────────────────────────────
+.turbo/
+
+# ── Environment ──────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# Keep .env.example in git
+!.env.example
+
+# ── Secrets ──────────────────────────────────────────────────
+*.pem
+*.key
+*.p12
+
+# ── Temp / dev ───────────────────────────────────────────────
+/tmp/repos/
+*.log
+*.pid
+
+# ── Test coverage ────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ───────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.suo
+*.swp
+
+# Keep these editor files
+!.vscode/extensions.json
+!.vscode/launch.json

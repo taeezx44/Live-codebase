@@ -1,0 +1,59 @@
+{
+  "name": "codevis",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Live Codebase Visualizer — analyze and explore any repo as an interactive graph",
+  "homepage": "https://codevis.dev",
+  "repository": {
+    "type": "git",
+    "url":  "https://github.com/codevis/codevis"
+  },
+  "license": "MIT",
+
+  "scripts": {
+    // ── Development ─────────────────────────────────────────
+    "dev":       "turbo run dev --parallel",
+    "build":     "turbo run build",
+    "start":     "turbo run start --parallel",
+
+    // ── Quality ──────────────────────────────────────────────
+    "test":      "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint":      "biome check .",
+    "lint:fix":  "biome check . --apply",
+    "format":    "biome format . --write",
+
+    // ── Cleanup ──────────────────────────────────────────────
+    "clean":     "turbo run clean && rm -rf node_modules",
+    "clean:dist": "find packages -name dist -type d | xargs rm -rf",
+
+    // ── Infrastructure ───────────────────────────────────────
+    "infra:up":    "docker compose -f infra/docker-compose.yml up -d postgres neo4j redis",
+    "infra:down":  "docker compose -f infra/docker-compose.yml down",
+    "infra:logs":  "docker compose -f infra/docker-compose.yml logs -f",
+    "infra:reset": "bash infra/scripts/reset-db.sh",
+
+    // ── Onboarding ───────────────────────────────────────────
+    "setup": "bash infra/scripts/dev-setup.sh",
+
+    // ── Migrations ───────────────────────────────────────────
+    "db:migrate": "pnpm --filter @codevis/api-gateway db:migrate"
+  },
+
+  "workspaces": [
+    "packages/*"
+  ],
+
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.0",
+    "turbo":          "^2.0.0",
+    "typescript":     "^5.4.5"
+  },
+
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+
+  "packageManager": "pnpm@9.4.0"
+}
