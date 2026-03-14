@@ -17,7 +17,7 @@ Load a GitHub repo. Watch the dependency graph build live. Click any file to tra
 
 <br/>
 
-![CodeVis demo — dependency graph of the React repository](docs/assets/demo.gif)
+https://github.com/taeezx44/Live-codebase/raw/main/docs/assets/demo.mp4
 
 *↑ The React repo, visualized. Every node is a file. Every edge is an import. Click any node to see its blast radius.*
 
