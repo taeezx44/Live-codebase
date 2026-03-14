@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "root": "deploy",
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
   "builds": [
     { "src": "index.html", "use": "@vercel/static" }
   ],
