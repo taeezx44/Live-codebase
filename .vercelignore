@@ -1,0 +1,7 @@
+packages/
+infra/
+docs/
+.github/
+.vscode/
+*.md
+!README.md
