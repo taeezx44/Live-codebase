@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/codevis/codevis/main/docs/assets/logo.svg" width="72" height="72" alt="CodeVis logo" />
+<img src="https://raw.githubusercontent.com/taeezx44/Live-codebase/main/docs/assets/logo.svg" width="72" height="72" alt="Korawit Chuluean logo" />
 
-# CodeVis
+# Korawit Chuluean
 
 **Understand any codebase in seconds — not hours.**
 
 Load a GitHub repo. Watch the dependency graph build live. Click any file to trace what breaks if you change it.
 
-[![CI](https://github.com/codevis/codevis/actions/workflows/ci.yml/badge.svg)](https://github.com/codevis/codevis/actions)
+[![CI](https://github.com/taeezx44/Live-codebase/actions/workflows/ci.yml/badge.svg)](https://github.com/taeezx44/Live-codebase/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun)](https://bun.sh)
@@ -122,7 +122,7 @@ POST /api/repos { url }
 
 ```bash
 # Clone and set up everything in one command
-git clone https://github.com/codevis/codevis
+git clone https://github.com/taeezx44/Live-codebase
 cd codevis
 bash infra/scripts/dev-setup.sh
 ```
@@ -299,7 +299,7 @@ Contributions are welcome. A few things to know before you start:
 
 ```bash
 # Fork and clone
-git clone https://github.com/YOUR_USERNAME/codevis
+git clone https://github.com/YOUR_USERNAME/Live-codebase
 cd codevis
 bash infra/scripts/dev-setup.sh
 
@@ -330,3 +330,5 @@ For high-availability deployments, the Kubernetes manifests are in `infra/k8s/`.
 MIT — see [LICENSE](LICENSE).
 
 Built with [tree-sitter](https://tree-sitter.github.io/), [Neo4j](https://neo4j.com/), [Sigma.js](https://www.sigmajs.org/), [Hono](https://hono.dev/), and [BullMQ](https://bullmq.io/).
+
+© 2025 Korawit Chuluean. All rights reserved.
