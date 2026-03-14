@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing. This guide covers everything from setting up your environment to getting your PR merged.
 
-If you just want to report a bug or request a feature, open an [issue](https://github.com/codevis/codevis/issues) — you don't need to read this whole document.
+If you just want to report a bug or request a feature, open an [issue](https://github.com/taeezx44/Live-codebase/issues) — you don't need to read this whole document.
 
 ---
 
@@ -32,7 +32,7 @@ Be direct. Be kind. Assume good faith. Disagreements about technical decisions a
 
 **Check existing issues and PRs first.** If you want to add a feature, open an issue to discuss it before writing code. There may already be a branch in progress, or the feature may be intentionally out of scope for the current phase.
 
-**Good first issues** are labelled [`good first issue`](https://github.com/codevis/codevis/labels/good%20first%20issue). These are bugs or small features that don't require deep knowledge of the whole codebase.
+**Good first issues** are labelled [`good first issue`](https://github.com/taeezx44/Live-codebase/labels/good%20first%20issue). These are bugs or small features that don't require deep knowledge of the whole codebase.
 
 **Larger contributions** — new language parsers, new graph queries, UI features — should be discussed in an issue first. This protects your time: it's better to spend 5 minutes discussing scope than 5 hours writing code that gets closed.
 
@@ -52,8 +52,8 @@ Be direct. Be kind. Assume good faith. Disagreements about technical decisions a
 ### First-time setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codevis
-cd codevis
+git clone https://github.com/YOUR_USERNAME/Live-codebase
+cd Live-codebase
 bash infra/scripts/dev-setup.sh
 ```
 
