@@ -1,0 +1,22 @@
+{
+  "name": "@codevis/worker",
+  "version": "1.0.0",
+  "description": "BullMQ jobs: clone → analyze → index",
+  "main": "./dist/workers/repo-analysis.worker.js",
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "dev":       "bun --watch src/workers/repo-analysis.worker.ts",
+    "test":      "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@codevis/analysis-engine": "workspace:*",
+    "@codevis/graph-engine":    "workspace:*",
+    "bullmq":                   "^5.7.0",
+    "ioredis":                  "^5.3.0",
+    "simple-git":               "^3.24.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}

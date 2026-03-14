@@ -1,0 +1,22 @@
+{
+  "name": "@codevis/graph-engine",
+  "version": "1.0.0",
+  "description": "Cypher queries + GraphService",
+  "main": "./dist/services/graph.service.js",
+  "types": "./dist/services/graph.service.d.ts",
+  "scripts": {
+    "build":     "tsc -p tsconfig.json",
+    "dev":       "tsc -p tsconfig.json --watch",
+    "test":      "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "kysely":       "^0.27.0",
+    "neo4j-driver": "^5.20.0",
+    "pg":           "^8.11.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "vitest":    "^1.6.0"
+  }
+}
