@@ -1,6 +1,6 @@
 {
   "name": "korawit-chuluean",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Korawit Chuluean — Live Codebase Visualizer",
   "main": "index.html",
   "scripts": {
