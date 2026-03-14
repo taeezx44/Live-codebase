@@ -13,7 +13,7 @@ Load a GitHub repo. Watch the dependency graph build live. Click any file to tra
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 [![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun)](https://bun.sh)
 
-[**Live Demo**](https://codevis.dev) · [**Docs**](https://docs.codevis.dev) · [**Roadmap**](#roadmap) · [**Contributing**](CONTRIBUTING.md)
+[**Live Demo**](https://live-codebaseg.vercel.app/) · [**Docs**](https://docs.codevis.dev) · [**Roadmap**](#roadmap) · [**Contributing**](CONTRIBUTING.md)
 
 <br/>
 
