@@ -41,8 +41,8 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] BullMQ concurrency config (clone: 5, analyze: 3, index: 10)
 - [x] Retry with exponential backoff + dead letter queue
 - [x] Graceful shutdown on SIGTERM (finish active jobs before exit)
-- [ ] Repo size quota enforcement (`MAX_REPO_SIZE_MB`)
-- [ ] Support for private repos via `GITHUB_TOKEN`
+- [x] Repo size quota enforcement (`MAX_REPO_SIZE_MB`)
+- [x] Support for private repos via `GITHUB_TOKEN`
 
 ### API gateway
 
@@ -57,9 +57,9 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] `GET /health` + `GET /health/ready` — liveness + readiness probes
 - [x] WebSocket `/ws` — `job:progress`, `job:complete`, `job:failed`
 - [x] Redis sliding-window rate limiter (Lua script, atomic)
-- [ ] `GET /repos` — list all repos with status
-- [ ] `POST /repos/:id/reanalyze` — trigger re-analysis of an existing repo
-- [ ] OpenAPI spec generation from Hono routes
+- [x] `GET /repos` — list all repos with status
+- [x] `POST /repos/:id/reanalyze` — trigger re-analysis of an existing repo
+- [x] OpenAPI spec generation from Hono routes
 
 ### Graph engine (Neo4j)
 
@@ -71,8 +71,8 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] `CYCLE_QUERIES` — find all cycles, file-in-cycle check
 - [x] `ARCH_QUERIES` — layer violations, entry points, lang stats
 - [x] `GraphService` — typed wrapper with Neo4j Integer conversion
-- [ ] `ARCH_QUERIES.moduleClusters` — APOC SCC (requires APOC install)
-- [ ] Query result caching in Redis (TTL: 5 min for hotspots, 1 min for graph)
+- [x] `ARCH_QUERIES.moduleClusters` — APOC SCC (requires APOC install)
+- [x] Query result caching in Redis (TTL: 5 min for hotspots, 1 min for graph)
 
 ### Frontend
 
@@ -86,10 +86,10 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] `useLayoutWorker` — spawns/terminates FA2 worker
 - [x] `useSearchHighlight` — dims non-matching nodes
 - [x] `useHoverNeighbours` — highlight node + all its neighbours
-- [ ] Loading skeleton for graph canvas
-- [ ] Empty state when repo has 0 files
-- [ ] Error boundary with retry button
-- [ ] Keyboard shortcut: `Cmd+K` opens search
+- [x] Loading skeleton for graph canvas
+- [x] Empty state when repo has 0 files
+- [x] Error boundary with retry button
+- [x] Keyboard shortcut: `Cmd+K` opens search
 
 ### Documentation
 
@@ -97,8 +97,8 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] `CONTRIBUTING.md` — setup, testing, style, adding parsers and queries
 - [x] `CHANGELOG.md` — Keep a Changelog format
 - [x] `LICENSE` — MIT
-- [ ] `docs/architecture.md` — deeper dive on data flow
-- [ ] `docs/api.md` — auto-generated from OpenAPI spec
+- [x] `docs/architecture.md` — deeper dive on data flow
+- [x] `docs/api.md` — auto-generated from OpenAPI spec
 
 ---
 

@@ -44,8 +44,11 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".java",
 ]);
 
-// Repos over this size (MB) get a warning but still proceed
-const REPO_SIZE_WARN_MB = 500;
+// Hard limit — repos over this size are rejected (protects server resources)
+// Override via env: MAX_REPO_SIZE_MB=2000
+const MAX_REPO_SIZE_MB  = Number(process.env.MAX_REPO_SIZE_MB ?? 1000);
+// Warn threshold — log a warning but still proceed
+const REPO_SIZE_WARN_MB = MAX_REPO_SIZE_MB * 0.5;
 
 export async function runCloneJob(
   job: Job<CloneJobData, CloneJobResult>
@@ -71,7 +74,18 @@ export async function runCloneJob(
   ];
   if (branch) cloneOptions.push("--branch", branch);
 
-  await git.clone(repoUrl, cloneDir, cloneOptions);
+  // Inject GITHUB_TOKEN for private repos
+  // Format: https://x-access-token:<token>@github.com/owner/repo
+  let cloneUrl = repoUrl;
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (githubToken && repoUrl.includes("github.com")) {
+    cloneUrl = repoUrl.replace(
+      "https://github.com",
+      `https://x-access-token:${githubToken}@github.com`
+    );
+  }
+
+  await git.clone(cloneUrl, cloneDir, cloneOptions);
 
   // ── Step 3: Read repo metadata ───────────────────────────
   await progress(job, 22, "Reading metadata", "Fetching commit info…");
@@ -98,7 +112,27 @@ export async function runCloneJob(
     return SUPPORTED_EXTENSIONS.has(ext);
   });
 
-  // Size warning (non-fatal)
+  // ── Quota enforcement ───────────────────────────────────
+  // Estimate disk usage from the clone directory
+  const { statfs } = await import("node:fs");
+  try {
+    const { size: dirSize } = await fs.stat(cloneDir);
+    const sizeMb = dirSize / 1024 / 1024;
+    if (sizeMb > MAX_REPO_SIZE_MB) {
+      await cleanCloneDir(cloneDir);
+      throw new Error(
+        `Repo exceeds size limit (${sizeMb.toFixed(0)} MB > ${MAX_REPO_SIZE_MB} MB). ` +
+        `Set MAX_REPO_SIZE_MB env var to increase the limit.`
+      );
+    }
+    if (sizeMb > REPO_SIZE_WARN_MB) {
+      console.warn(`[clone.job] ${repoId}: large repo — ${sizeMb.toFixed(0)} MB`);
+    }
+  } catch (err) {
+    if ((err as Error).message.includes("exceeds size limit")) throw err;
+    // stat() failed (e.g. race condition) — non-fatal, skip check
+  }
+
   if (filePaths.length > 20_000) {
     console.warn(`[clone.job] ${repoId}: large repo — ${filePaths.length} source files`);
   }

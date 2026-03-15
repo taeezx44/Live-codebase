@@ -14,6 +14,7 @@
 // ============================================================
 
 import type { Driver, Integer } from "neo4j-driver";
+import type { Redis } from "ioredis";
 import neo4j from "neo4j-driver";
 import {
   GRAPH_QUERIES,
@@ -57,10 +58,47 @@ function toArr(val: unknown): string[] {
 // ── GraphService ──────────────────────────────────────────────
 
 export class GraphService {
-  constructor(private readonly driver: Driver) {}
+  constructor(
+    private readonly driver: Driver,
+    private readonly redis?: Redis  // optional — caching is best-effort
+  ) {}
 
   private session() {
     return this.driver.session();
+  }
+
+  // ── Cache helpers ────────────────────────────────────────────
+
+  private async cached<T>(
+    key: string,
+    ttlSeconds: number,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    if (!this.redis) return fn();
+    try {
+      const hit = await this.redis.get(key);
+      if (hit) return JSON.parse(hit) as T;
+    } catch { /* cache miss — fall through */ }
+
+    const result = await fn();
+
+    try {
+      await this.redis.setex(key, ttlSeconds, JSON.stringify(result));
+    } catch { /* non-fatal — don't fail on cache write error */ }
+
+    return result;
+  }
+
+  invalidateRepo(repoId: string): Promise<number> {
+    if (!this.redis) return Promise.resolve(0);
+    // Delete all keys matching this repo
+    return this.redis.del(
+      `graph:${repoId}`,
+      `hotspots:${repoId}:fanin`,
+      `hotspots:${repoId}:complexity`,
+      `hotspots:${repoId}:risk`,
+      `cycles:${repoId}`
+    );
   }
 
   // ── Graph retrieval ─────────────────────────────────────────
@@ -73,6 +111,8 @@ export class GraphService {
       nodeLimit?: number;
     } = {}
   ): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+    const cacheKey = `graph:${repoId}`;
+    return this.cached(cacheKey, 60, async () => {
     const session = this.session();
     try {
       const result = await session.run(GRAPH_QUERIES.repoGraph, {

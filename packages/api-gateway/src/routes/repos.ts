@@ -192,6 +192,60 @@ reposRouter.get(
 // Deletes repo from PG + all nodes/edges from Neo4j.
 // This is irreversible — the user has to re-import.
 
+// ── GET /repos — list all repos with status ──────────────────────────────
+reposRouter.get("/", async (c) => {
+  const db = getDb();
+  const limit  = Math.min(Number(c.req.query("limit")  ?? 50), 100);
+  const offset = Number(c.req.query("offset") ?? 0);
+  const status = c.req.query("status"); // optional filter
+
+  let query = db
+    .selectFrom("repos")
+    .select(["repo_id", "url", "status", "total_files", "analyzed_at", "created_at"])
+    .orderBy("created_at", "desc")
+    .limit(limit)
+    .offset(offset);
+
+  if (status) {
+    query = query.where("status", "=", status);
+  }
+
+  const repos = await query.execute();
+  return c.json({ repos, limit, offset });
+});
+
+// ── POST /repos/:id/reanalyze — re-trigger analysis ──────────────────────
+reposRouter.post("/:id/reanalyze", async (c) => {
+  const repoId = c.req.param("id");
+  const db     = getDb();
+  const queue  = getRepoAnalysisQueue();
+
+  const repo = await db
+    .selectFrom("repos")
+    .select(["repo_id", "url"])
+    .where("repo_id", "=", repoId)
+    .executeTakeFirst();
+
+  if (!repo) {
+    return c.json({ error: "Repo not found" }, 404);
+  }
+
+  // Reset status and enqueue a fresh clone job
+  await db
+    .updateTable("repos")
+    .set({ status: "queued", analyzed_at: null })
+    .where("repo_id", "=", repoId)
+    .execute();
+
+  const job = await queue.add("clone", {
+    repoId:   repo.repo_id,
+    repoUrl:  repo.url,
+    cloneDir: `/tmp/repos/${repo.repo_id}`,
+  });
+
+  return c.json({ repoId, jobId: job.id, status: "queued" });
+});
+
 reposRouter.delete("/:id", async (c) => {
   const { id } = c.req.param();
   const db     = getDb();

@@ -23,13 +23,18 @@ import { useState, useCallback, useMemo } from "react";
 import { SigmaContainer } from "@react-sigma/core";
 import "@react-sigma/core/lib/react-sigma.min.css";
 
-import { GraphEvents } from "./GraphEvents";
-import { NodeDetailPanel } from "./panels/NodeDetailPanel";
-import { GraphToolbar } from "./GraphToolbar";
+import { GraphEvents }        from "./GraphEvents.js";
+import { NodeDetailPanel }    from "./NodeDetailPanel.js";
+import { GraphToolbar }       from "./GraphToolbar.js";
+import { GraphSkeleton }      from "./GraphSkeleton.js";
+import { GraphEmptyState }    from "./GraphEmptyState.js";
+import { GraphErrorBoundary } from "./GraphErrorBoundary.js";
 
-import { useGraphData } from "./hooks/useGraphData";
-import { useLayoutWorker } from "./hooks/index";
-import { useSearchHighlight, useHoverNeighbours } from "./hooks/index";
+import { useGraphData }        from "../hooks/useGraphData.js";
+import { useLayoutWorker }     from "../hooks/useLayoutWorker.js";
+import { useSearchHighlight }  from "../hooks/useSearchHighlight.js";
+import { useHoverNeighbours }  from "../hooks/useHoverNeighbours.js";
+import { useEffect, useRef }   from "react";
 
 import type {
   SigmaNodeAttributes,
@@ -127,6 +132,20 @@ export function GraphViewer({ repoId, height = "100vh" }: GraphViewerProps) {
 
   const [selectedNode, setSelectedNode]   = useState<string | null>(null);
   const [filters, setFilters]             = useState<GraphFilters>(DEFAULT_FILTERS);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Cmd+K (Mac) / Ctrl+K (Win) opens search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // Search highlight
   useSearchHighlight(graph, filters.searchQuery);
@@ -147,28 +166,25 @@ export function GraphViewer({ repoId, height = "100vh" }: GraphViewerProps) {
   const handleNodeClick  = useCallback((node: string) => setSelectedNode(node), []);
   const handleStageClick = useCallback(() => setSelectedNode(null), []);
 
-  // ── Loading / error states ───────────────────────────────
+  // ── Loading / error / empty states ─────────────────────
   if (state === "loading") {
-    return (
-      <div style={centeredStyle(height)}>
-        <LoadingSpinner />
-        <p style={{ color: "#6b7280", marginTop: 16, fontSize: 14 }}>
-          Loading dependency graph…
-        </p>
-      </div>
-    );
+    return <GraphSkeleton height={height} />;
   }
 
   if (state === "error") {
     return (
-      <div style={centeredStyle(height)}>
-        <p style={{ color: "#ef4444" }}>Failed to load graph: {error}</p>
-        <button onClick={reload} style={retryButtonStyle}>Retry</button>
-      </div>
+      <GraphErrorBoundary height={height}>
+        <div style={centeredStyle(height)}>
+          <p style={{ color: "#ef4444" }}>Failed to load: {error}</p>
+          <button onClick={reload} style={retryButtonStyle}>Retry</button>
+        </div>
+      </GraphErrorBoundary>
     );
   }
 
-  if (!graph) return null;
+  if (!graph || graph.order === 0) {
+    return <GraphEmptyState height={height} onReanalyze={reload} />;
+  }
 
   return (
     <div style={{ position: "relative", width: "100%", height, background: "#0f1117" }}>
@@ -206,6 +222,7 @@ export function GraphViewer({ repoId, height = "100vh" }: GraphViewerProps) {
         filters={filters}
         layoutStatus={layoutStatus}
         onFiltersChange={setFilters}
+        searchInputRef={searchInputRef}
       />
 
       {/* ── Layout running indicator ───────────────────────── */}
