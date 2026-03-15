@@ -13,6 +13,8 @@ import { glob } from "glob";
 import pLimit from "p-limit";
 import { JavaScriptParser } from "./parsers/javascript.parser.js";
 import { TypeScriptParser } from "./parsers/typescript.parser.js";
+import { PythonParser }     from "./parsers/python.parser.js";
+import { GoParser }         from "./parsers/go.parser.js";
 import { ImportResolver, type ResolverConfig } from "./extractors/resolver.js";
 import type { FileParseResult, Language } from "./types/ast.js";
 import { BaseParser } from "./parsers/base.parser.js";
@@ -27,6 +29,9 @@ const EXT_TO_LANGUAGE: Record<string, Language> = {
   ".ts":  "typescript",
   ".tsx": "typescript",
   ".mts": "typescript",
+  ".py":  "python",
+  ".pyi": "python",     // Python stub files — same grammar
+  ".go":  "go",
 };
 
 // Files/dirs we never want to parse
@@ -76,7 +81,8 @@ export class ParserEngine {
     this.parsers = new Map([
       ["javascript", new JavaScriptParser()],
       ["typescript", new TypeScriptParser()],
-      // Python / Go / Java parsers added in Phase 2
+      ["python",     new PythonParser()],
+      ["go",         new GoParser()],
     ]);
 
     this.resolver = new ImportResolver({

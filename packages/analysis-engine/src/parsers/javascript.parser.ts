@@ -16,8 +16,8 @@ import type {
   FunctionNode,
   ClassNode,
   Language,
-} from "../types/ast.js";
-import { calcCyclomaticComplexity } from "../extractors/complexity.js";
+} from "../ast.js";
+import { calcCyclomaticComplexity } from "../complexity.js";
 
 export class JavaScriptParser extends BaseParser {
   readonly language: Language = "javascript";
@@ -49,7 +49,11 @@ export class JavaScriptParser extends BaseParser {
         if (!sourceNode) return;
 
         const specifier = stripQuotes(this.nodeText(sourceNode, source));
-        const clauseNode = node.childForFieldName("import_clause");
+        // tree-sitter-javascript: field name varies by version
+        // find the import_clause child by type instead
+        const clauseNode = node.children.find(
+          (c) => c.type === "import_clause"
+        ) ?? null;
         const symbols = clauseNode
           ? extractImportedSymbols(clauseNode, source)
           : [];
@@ -212,13 +216,14 @@ export class JavaScriptParser extends BaseParser {
       const nameNode = node.childForFieldName("name");
       if (!nameNode) return; // anonymous class expression — skip
 
-      const heritage = node.childForFieldName("heritage");
-      const superClass = heritage
-        ? this.nodeText(heritage, source).replace(/^extends\s+/, "")
+      // tree-sitter-javascript: superclass is in a "class_heritage" child node
+      const heritageNode = node.children.find((c) => c.type === "class_heritage");
+      const superClass = heritageNode
+        ? heritageNode.text.replace(/^extends\s+/, "").trim()
         : undefined;
 
       // Extract methods from class_body
-      const body = node.childForFieldName("body");
+      const body = node.children.find((c) => c.type === "class_body") ?? null;
       const methods = body
         ? this.extractFunctions(body, filePath, source)
         : [];
@@ -288,6 +293,11 @@ function getFunctionNode(
     return node;
   }
 
+  // Class method: method_definition contains a function body
+  if (node.type === "method_definition") {
+    return node;
+  }
+
   // Arrow or function expression assigned to a variable:
   // const foo = () => {} OR const foo = function() {}
   if (node.type === "lexical_declaration" || node.type === "variable_declaration") {
@@ -311,6 +321,13 @@ function resolveFunctionName(
   // Named function declaration: function foo() {}
   const nameNode = fnNode.childForFieldName("name");
   if (nameNode) return nameNode.text;
+
+  // method_definition: name is a property_identifier child
+  // e.g. bark() {} → first named child is the method name
+  if (fnNode.type === "method_definition") {
+    const firstNamed = fnNode.namedChild(0);
+    if (firstNamed) return firstNamed.text;
+  }
 
   // Arrow/function assigned to variable: const foo = () => {}
   if (

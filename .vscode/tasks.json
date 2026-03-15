@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compile-extension",
+      "type": "shell",
+      "command": "pnpm compile",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/vscode-extension"
+      },
+      "group": "build",
+      "presentation": { "reveal": "silent" }
+    }
+  ]
+}

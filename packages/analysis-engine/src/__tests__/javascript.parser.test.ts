@@ -6,7 +6,7 @@
 // ============================================================
 
 import { describe, it, expect } from "vitest";
-import { JavaScriptParser } from "../src/parsers/javascript.parser.js";
+import { JavaScriptParser } from "../parsers/javascript.parser.js";
 
 const parser = new JavaScriptParser();
 const FILE = "/fake/src/app.js";

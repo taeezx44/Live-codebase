@@ -1,0 +1,118 @@
+{
+  "name": "codevis-vscode",
+  "displayName": "CodeVis",
+  "description": "Visualize your codebase dependency graph in VS Code",
+  "version": "0.1.0",
+  "publisher": "taeezx44",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/taeezx44/Live-codebase"
+  },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Visualization", "Other"],
+  "keywords": ["dependency graph", "codebase", "visualization", "architecture"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "icon": "assets/icon.png",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codevis",
+          "title": "CodeVis",
+          "icon": "assets/icon-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "codevis": [
+        {
+          "type": "webview",
+          "id": "codevis.graphPanel",
+          "name": "Dependency Graph"
+        },
+        {
+          "id": "codevis.fileInfo",
+          "name": "File Info"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "codevis.showInGraph",
+        "title": "CodeVis: Show Current File in Graph",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "codevis.showImpact",
+        "title": "CodeVis: Show Impact of Current File",
+        "icon": "$(references)"
+      },
+      {
+        "command": "codevis.openDashboard",
+        "title": "CodeVis: Open Full Dashboard",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "codevis.configure",
+        "title": "CodeVis: Configure Server URL"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codevis.showInGraph",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|py|go)$/"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codevis.showInGraph",
+          "group": "codevis",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|py|go)$/"
+        },
+        {
+          "command": "codevis.showImpact",
+          "group": "codevis",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|py|go)$/"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeVis",
+      "properties": {
+        "codevis.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "URL of the CodeVis API server"
+        },
+        "codevis.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically highlight current file in graph when switching editors"
+        },
+        "codevis.repoId": {
+          "type": "string",
+          "default": "",
+          "description": "Active repo ID (set automatically after first analysis)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile":   "tsc -p tsconfig.json",
+    "watch":     "tsc -p tsconfig.json --watch",
+    "package":   "vsce package",
+    "lint":      "biome check src/"
+  },
+  "dependencies": {
+    "axios": "^1.7.0"
+  },
+  "devDependencies": {
+    "@types/vscode":    "^1.85.0",
+    "@types/node":      "^20.0.0",
+    "@vscode/vsce":     "^2.24.0",
+    "typescript":       "^5.4.0"
+  }
+}

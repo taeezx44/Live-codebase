@@ -77,6 +77,8 @@ export class Neo4jWriter {
     await this.writeFunctionNodes(repoId, files);
     await this.writeClassNodes(repoId, files);
     await this.writeImportEdges(repoId, files);
+    await this.writeCallEdges(repoId, files);
+    await this.writeHierarchyEdges(repoId, files);
   }
 
   // ── Pass 1: File nodes ──────────────────────────────────────
@@ -191,6 +193,98 @@ export class Neo4jWriter {
        SET r.symbols = props.symbols,
            r.line    = props.line`,
     );
+  }
+
+  // ── Pass 5: CALLS edges (Function → Function) ─────────────
+  //
+  // Resolution strategy: fn.calls[] contains raw called names.
+  // We attempt to match them against Function nodes in the same repo.
+  // Unresolved calls (external libraries) are silently dropped.
+
+  private async writeCallEdges(
+    repoId: string,
+    files: FileParseResult[]
+  ): Promise<void> {
+    // Build a flat list of (callerId, calleeName) pairs
+    const params = files.flatMap((f) =>
+      f.functions.flatMap((fn) => {
+        const callerId = `${repoId}:${f.filePath}:${fn.name}:${fn.range.start.line}`;
+        return fn.calls.map((callee) => ({
+          callerId,
+          calleeName: callee,
+          repoId,
+        }));
+      })
+    );
+
+    if (params.length === 0) return;
+
+    // Match by function name within the same repo — best-effort resolution.
+    // When multiple functions share a name, we create edges to all of them.
+    await this.batchWrite(
+      params,
+      `UNWIND $batch AS props
+       MATCH (caller:Function { id: props.callerId })
+       MATCH (callee:Function)
+       WHERE callee.name = props.calleeName
+         AND callee.filePath STARTS WITH props.repoId
+       MERGE (caller)-[:CALLS]->(callee)`,
+    );
+  }
+
+  // ── Pass 6: EXTENDS + IMPLEMENTS hierarchy edges ───────────
+  //
+  // Writes:
+  //   (:Class)-[:EXTENDS]->(:Class)     — class Dog extends Animal
+  //   (:Class)-[:IMPLEMENTS]->(:Class)  — class Foo implements Bar (TS)
+
+  private async writeHierarchyEdges(
+    repoId: string,
+    files: FileParseResult[]
+  ): Promise<void> {
+    const extendsParams = files.flatMap((f) =>
+      f.classes
+        .filter((cls) => cls.superClass != null)
+        .map((cls) => ({
+          childId:         `${repoId}:${f.filePath}:${cls.name}`,
+          superClassName:  cls.superClass!,
+          repoId,
+        }))
+    );
+
+    const implementsParams = files.flatMap((f) =>
+      f.classes.flatMap((cls) =>
+        cls.interfaces.map((iface) => ({
+          classId:       `${repoId}:${f.filePath}:${cls.name}`,
+          interfaceName: iface,
+          repoId,
+        }))
+      )
+    );
+
+    if (extendsParams.length > 0) {
+      await this.batchWrite(
+        extendsParams,
+        `UNWIND $batch AS props
+         MATCH (child:Class { id: props.childId })
+         MATCH (parent:Class)
+         WHERE parent.name = props.superClassName
+           AND parent.filePath STARTS WITH props.repoId
+         MERGE (child)-[:EXTENDS]->(parent)`,
+      );
+    }
+
+    if (implementsParams.length > 0) {
+      await this.batchWrite(
+        implementsParams,
+        `UNWIND $batch AS props
+         MATCH (cls:Class { id: props.classId })
+         MATCH (iface:Class)
+         WHERE iface.name = props.interfaceName
+           AND iface.filePath STARTS WITH props.repoId
+         MERGE (cls)-[:IMPLEMENTS]->(iface)`,
+      );
+    }
   }
 
   // ── Utility: batch UNWIND writes ───────────────────────────

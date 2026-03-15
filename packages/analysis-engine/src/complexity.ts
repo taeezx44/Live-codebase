@@ -26,9 +26,8 @@ const BRANCH_NODE_TYPES = new Set([
   "while_statement",
   "do_statement",
   "catch_clause",
-  "&&",                     // logical AND creates branch
-  "||",                     // logical OR creates branch
-  "??",                     // nullish coalescing
+  // Note: && / || / ?? are counted via binary_expression check below
+  // to avoid double-counting (the operator token is a child of binary_expression)
 ]);
 
 export function calcCyclomaticComplexity(fnNode: Parser.SyntaxNode): number {
@@ -55,4 +54,74 @@ export function complexityLabel(cc: number): "low" | "medium" | "high" | "critic
   if (cc <= 10) return "medium";
   if (cc <= 20) return "high";
   return "critical";
+}
+
+// ── Python cyclomatic complexity ──────────────────────────────
+// Branching nodes in the Python CST:
+//   if_statement, elif_clause, for_statement, while_statement,
+//   except_clause, with_statement,
+//   conditional_expression (x if cond else y),
+//   boolean_operator (and / or — each adds a path)
+
+const PYTHON_BRANCH_TYPES = new Set([
+  "if_statement",
+  "elif_clause",
+  "for_statement",
+  "while_statement",
+  "except_clause",
+  "with_statement",
+  "conditional_expression",
+  "boolean_operator",
+]);
+
+export function calcCyclomaticComplexityPython(
+  fnNode: Parser.SyntaxNode
+): number {
+  let cc = 1; // base
+
+  function walk(node: Parser.SyntaxNode): void {
+    if (PYTHON_BRANCH_TYPES.has(node.type)) cc++;
+    for (const child of node.children) walk(child);
+  }
+
+  walk(fnNode);
+  return cc;
+}
+
+// ── Go cyclomatic complexity ──────────────────────────────────
+// Branching nodes in the Go CST:
+//   if_statement, for_statement,
+//   expression_switch_statement, type_switch_statement,
+//   select_statement, expression_case, communication_case,
+//   binary_expression with && or ||
+
+const GO_BRANCH_TYPES = new Set([
+  "if_statement",
+  "for_statement",
+  "expression_switch_statement",
+  "type_switch_statement",
+  "select_statement",
+  "expression_case",
+  "communication_case",
+]);
+
+export function calcCyclomaticComplexityGo(
+  fnNode: Parser.SyntaxNode
+): number {
+  let cc = 1; // base
+
+  function walk(node: Parser.SyntaxNode): void {
+    if (GO_BRANCH_TYPES.has(node.type)) {
+      cc++;
+    } else if (node.type === "binary_expression") {
+      const op = node.children.find(
+        (c) => c.type === "&&" || c.type === "||"
+      );
+      if (op) cc++;
+    }
+    for (const child of node.children) walk(child);
+  }
+
+  walk(fnNode);
+  return cc;
 }

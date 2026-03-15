@@ -287,7 +287,7 @@ export const HOTSPOT_QUERIES = {
 
 // ── Call graph queries ────────────────────────────────────────
 
-export const CALL_GRAPH_QUERIES = {
+export const CALL_GRAPH_QUERIES_V1 = {
 
   // ── Functions called by a given function (direct) ────────────
   // Used by: call graph panel, "what does this call?"
@@ -436,6 +436,138 @@ export const ARCH_QUERIES = {
       max(f.complexity)    AS maxComplexity,
       sum(f.parseErrors)   AS totalParseErrors
     ORDER BY fileCount DESC
+  `,
+
+} as const;
+
+// ── Call graph queries ────────────────────────────────────────
+
+export const CALL_GRAPH_QUERIES = {
+
+  // Functions called by a given function (outgoing calls)
+  // Used by: GET /api/repos/:id/callgraph?fn=<id>&dir=out
+  calledBy: `
+    MATCH (fn:Function { id: $fnId })-[:CALLS]->(callee:Function)
+    RETURN
+      callee.id         AS id,
+      callee.name       AS name,
+      callee.filePath   AS filePath,
+      callee.complexity AS complexity,
+      callee.isAsync    AS isAsync
+    LIMIT 50
+  `,
+
+  // Functions that call a given function (incoming calls)
+  // Used by: GET /api/repos/:id/callgraph?fn=<id>&dir=in
+  callers: `
+    MATCH (caller:Function)-[:CALLS]->(fn:Function { id: $fnId })
+    RETURN
+      caller.id         AS id,
+      caller.name       AS name,
+      caller.filePath   AS filePath,
+      caller.complexity AS complexity,
+      caller.isAsync    AS isAsync
+    LIMIT 50
+  `,
+
+  // Full call chain up to N hops (call graph traversal)
+  // Used by: GET /api/repos/:id/callchain?fn=<id>&depth=3
+  callChain: `
+    MATCH path = (fn:Function { id: $fnId })-[:CALLS*1..$depth]->(callee:Function)
+    RETURN
+      [n IN nodes(path) | n.id]   AS chain,
+      [n IN nodes(path) | n.name] AS names,
+      length(path)                 AS depth
+    ORDER BY depth
+    LIMIT 100
+  `,
+
+  // Most-called functions in a repo (hottest call targets)
+  // Used by: GET /api/repos/:id/hotspots?mode=calls
+  hotCallTargets: `
+    MATCH (callee:Function)<-[:CALLS]-(caller:Function)
+    WHERE callee.filePath STARTS WITH $repoId
+    WITH callee, count(caller) AS callCount
+    RETURN
+      callee.id         AS id,
+      callee.name       AS name,
+      callee.filePath   AS filePath,
+      callee.complexity AS complexity,
+      callCount
+    ORDER BY callCount DESC
+    LIMIT 20
+  `,
+
+  // All functions in a file with their call counts
+  // Used by: NodeDetailPanel → function list
+  functionsInFile: `
+    MATCH (f:File { path: $filePath })-[:DEFINES]->(fn:Function)
+    OPTIONAL MATCH (fn)<-[:CALLS]-(caller:Function)
+    WITH fn, count(caller) AS incomingCalls
+    RETURN
+      fn.id         AS id,
+      fn.name       AS name,
+      fn.loc        AS loc,
+      fn.complexity AS complexity,
+      fn.isAsync    AS isAsync,
+      fn.isExported AS isExported,
+      incomingCalls
+    ORDER BY incomingCalls DESC, fn.complexity DESC
+  `,
+
+} as const;
+
+// ── Class hierarchy queries ───────────────────────────────────
+
+export const HIERARCHY_QUERIES = {
+
+  // Full inheritance chain for a class (ancestors)
+  // Used by: GET /api/repos/:id/hierarchy?class=<id>
+  ancestors: `
+    MATCH path = (cls:Class { id: $classId })-[:EXTENDS*1..10]->(ancestor:Class)
+    RETURN
+      [n IN nodes(path) | n.id]   AS chain,
+      [n IN nodes(path) | n.name] AS names,
+      length(path)                 AS depth
+    ORDER BY depth
+    LIMIT 50
+  `,
+
+  // All classes that extend a given class (descendants)
+  // Used by: NodeDetailPanel → subclasses list
+  descendants: `
+    MATCH (cls:Class { id: $classId })<-[:EXTENDS*1..10]-(sub:Class)
+    RETURN
+      sub.id         AS id,
+      sub.name       AS name,
+      sub.filePath   AS filePath,
+      sub.isExported AS isExported
+    LIMIT 50
+  `,
+
+  // Classes that implement an interface
+  // Used by: interface detail panel
+  implementations: `
+    MATCH (cls:Class)-[:IMPLEMENTS]->(iface:Class { id: $interfaceId })
+    RETURN
+      cls.id         AS id,
+      cls.name       AS name,
+      cls.filePath   AS filePath
+    LIMIT 50
+  `,
+
+  // Full class hierarchy overview for a repo
+  // Used by: hierarchy graph view
+  repoHierarchy: `
+    MATCH (child:Class)-[r:EXTENDS|IMPLEMENTS]->(parent:Class)
+    WHERE child.filePath STARTS WITH $repoId
+    RETURN
+      child.id   AS childId,
+      child.name AS childName,
+      parent.id  AS parentId,
+      parent.name AS parentName,
+      type(r)    AS relationshipType
+    LIMIT 200
   `,
 
 } as const;
