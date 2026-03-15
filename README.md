@@ -413,8 +413,8 @@ Status markers: `✅ done` · `🔄 in progress` · `📋 planned` · `💡 idea
 - [x] Cyclomatic complexity calculator
 - [x] Import resolver — relative paths → absolute, tsconfig path aliases
 - [x] `ParserEngine` — parallel file parsing with `p-limit`, progress callback
-- [ ] Handle `.mts` / `.cts` module extensions
-- [ ] Detect re-exports: `export { foo } from "./foo"`
+- [x] Handle `.mts` / `.cts` module extensions
+- [x] Detect re-exports: `export { foo } from "./foo"`
 
 ### Worker
 

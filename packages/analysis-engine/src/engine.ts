@@ -28,6 +28,7 @@ const EXT_TO_LANGUAGE: Record<string, Language> = {
   ".ts":  "typescript",
   ".tsx": "typescript",
   ".mts": "typescript",
+  ".cts": "typescript",
   ".py":  "python",
   ".pyi": "python",     // Python stub files — same grammar
   ".go":  "go",
