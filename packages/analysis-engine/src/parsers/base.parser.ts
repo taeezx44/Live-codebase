@@ -19,7 +19,7 @@ import type {
   ImportEdge,
   Language,
   Range,
-} from "../types/ast.js";
+} from "../ast.js";
 
 export abstract class BaseParser {
   protected parser: Parser;
@@ -28,7 +28,7 @@ export abstract class BaseParser {
   constructor(tsLanguage: object) {
     this.parser = new Parser();
     // Each subclass passes its language grammar object
-    this.parser.setLanguage(tsLanguage as Parser.Language);
+    this.parser.setLanguage(tsLanguage as any);
   }
 
   // ── Public API ──────────────────────────────────────────────

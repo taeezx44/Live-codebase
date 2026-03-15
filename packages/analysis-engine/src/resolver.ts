@@ -17,7 +17,7 @@
 
 import path from "node:path";
 import fs from "node:fs";
-import type { ImportEdge } from "../types/ast.js";
+import type { ImportEdge } from "./ast.js";
 
 export interface ResolverConfig {
   rootDir: string;

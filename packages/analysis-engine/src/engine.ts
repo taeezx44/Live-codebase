@@ -11,12 +11,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { glob } from "glob";
 import pLimit from "p-limit";
-import { JavaScriptParser } from "./parsers/javascript.parser.js";
-import { TypeScriptParser } from "./parsers/typescript.parser.js";
+import { JavaScriptParser, TypeScriptParser } from "./parsers/javascript.parser.js";
 import { PythonParser }     from "./parsers/python.parser.js";
 import { GoParser }         from "./parsers/go.parser.js";
-import { ImportResolver, type ResolverConfig } from "./extractors/resolver.js";
-import type { FileParseResult, Language } from "./types/ast.js";
+import { ImportResolver, type ResolverConfig } from "./resolver.js";
+import type { FileParseResult, Language } from "./ast.js";
 import { BaseParser } from "./parsers/base.parser.js";
 
 // ── Registry ────────────────────────────────────────────────
@@ -78,7 +77,7 @@ export class ParserEngine {
 
     // Lazy-init parsers — tree-sitter grammars are ~2MB each,
     // only load what we actually encounter
-    this.parsers = new Map([
+    this.parsers = new Map<Language, BaseParser>([
       ["javascript", new JavaScriptParser()],
       ["typescript", new TypeScriptParser()],
       ["python",     new PythonParser()],
@@ -126,7 +125,7 @@ export class ParserEngine {
     });
 
     // Filter to only supported extensions
-    const sourceFiles = files.filter((f) => {
+    const sourceFiles = files.filter((f: string) => {
       const ext = path.extname(f).toLowerCase();
       return ext in EXT_TO_LANGUAGE;
     });
@@ -137,7 +136,7 @@ export class ParserEngine {
     const results: FileParseResult[] = [];
 
     await Promise.all(
-      sourceFiles.map((filePath) =>
+      sourceFiles.map((filePath: string) =>
         limit(async () => {
           const result = await this.analyzeFile(filePath);
           if (result) results.push(result);

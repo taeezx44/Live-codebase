@@ -44,6 +44,36 @@ export class JavaScriptParser extends BaseParser {
 
     this.walk(root, (node) => {
       // ── Static ESM import ──────────────────────────────────
+      // Re-exports: export { foo } from './utils' or export * from './utils'
+      // These create implicit import edges (the file depends on the re-exported module)
+      if (node.type === "export_statement") {
+        const sourceNode = node.childForFieldName("source");
+        if (sourceNode) {
+          const specifier = stripQuotes(this.nodeText(sourceNode, source));
+          // export * from './foo'  or  export { a, b } from './foo'
+          const clause = node.namedChildren.find((c) => c.type === "export_clause");
+          const symbols: string[] = [];
+          if (clause) {
+            for (const spec of clause.namedChildren) {
+              if (spec.type === "export_specifier") {
+                const name = spec.childForFieldName("name");
+                if (name) symbols.push(this.nodeText(name, source));
+              }
+            }
+          } else {
+            symbols.push("*"); // export * from './foo'
+          }
+          imports.push({
+            fromFile: filePath,
+            toModule: specifier,
+            kind:     "static",
+            symbols,
+            range:    this.nodeToRange(node),
+          });
+        }
+        return false;
+      }
+
       if (node.type === "import_statement") {
         const sourceNode = node.childForFieldName("source");
         if (!sourceNode) return;
@@ -391,4 +421,27 @@ function extractCallNames(
 
   walk(fnNode);
   return [...calls];
+}
+
+// ── TypeScript Parser ────────────────────────────────────────
+
+export class TypeScriptParser extends JavaScriptParser {
+  constructor() {
+    super();
+    // TypeScript uses the same tree-sitter grammar as JavaScript
+    // but adds TypeScript-specific features like interfaces, implements, etc.
+  }
+
+  // Override to handle TypeScript-specific syntax
+  protected extractClasses(
+    root: Parser.SyntaxNode,
+    filePath: string,
+    source: string
+  ): ClassNode[] {
+    const classes = super.extractClasses(root, filePath, source);
+
+    // Add TypeScript-specific processing here if needed
+    // For now, just return the base implementation
+    return classes;
+  }
 }

@@ -16,7 +16,7 @@
 // ============================================================
 
 import neo4j, { type Driver, type Session } from "neo4j-driver";
-import type { FileParseResult } from "./types/ast.js";
+import type { FileParseResult } from "./ast.js";
 
 export interface Neo4jConfig {
   uri: string;       // e.g. "bolt://localhost:7687"
@@ -87,7 +87,7 @@ export class Neo4jWriter {
     repoId: string,
     files: FileParseResult[]
   ): Promise<void> {
-    const params = files.map((f) => ({
+    const params = files.map((f: any) => ({
       path: f.filePath,
       language: f.language,
       loc: neo4j.int(f.loc),
@@ -111,7 +111,7 @@ export class Neo4jWriter {
     files: FileParseResult[]
   ): Promise<void> {
     const params = files.flatMap((f) =>
-      f.functions.map((fn) => ({
+      f.functions.map((fn: any) => ({
         id: `${repoId}:${f.filePath}:${fn.name}:${fn.range.start.line}`,
         name: fn.name,
         filePath: f.filePath,
@@ -142,7 +142,7 @@ export class Neo4jWriter {
     files: FileParseResult[]
   ): Promise<void> {
     const params = files.flatMap((f) =>
-      f.classes.map((cls) => ({
+      f.classes.map((cls: any) => ({
         id: `${repoId}:${f.filePath}:${cls.name}`,
         name: cls.name,
         filePath: f.filePath,
@@ -174,8 +174,8 @@ export class Neo4jWriter {
     // Only write edges where toFile is resolved (internal imports)
     const params = files.flatMap((f) =>
       f.imports
-        .filter((imp) => imp.toFile != null)
-        .map((imp) => ({
+        .filter((imp: any) => imp.toFile != null)
+        .map((imp: any) => ({
           fromPath: f.filePath,
           toPath: imp.toFile!,
           kind: imp.kind,
@@ -207,9 +207,9 @@ export class Neo4jWriter {
   ): Promise<void> {
     // Build a flat list of (callerId, calleeName) pairs
     const params = files.flatMap((f) =>
-      f.functions.flatMap((fn) => {
+      f.functions.flatMap((fn: any) => {
         const callerId = `${repoId}:${f.filePath}:${fn.name}:${fn.range.start.line}`;
-        return fn.calls.map((callee) => ({
+        return fn.calls.map((callee: any) => ({
           callerId,
           calleeName: callee,
           repoId,
@@ -244,8 +244,8 @@ export class Neo4jWriter {
   ): Promise<void> {
     const extendsParams = files.flatMap((f) =>
       f.classes
-        .filter((cls) => cls.superClass != null)
-        .map((cls) => ({
+        .filter((cls: any) => cls.superClass != null)
+        .map((cls: any) => ({
           childId:         `${repoId}:${f.filePath}:${cls.name}`,
           superClassName:  cls.superClass!,
           repoId,
@@ -253,8 +253,8 @@ export class Neo4jWriter {
     );
 
     const implementsParams = files.flatMap((f) =>
-      f.classes.flatMap((cls) =>
-        cls.interfaces.map((iface) => ({
+      f.classes.flatMap((cls: any) =>
+        cls.interfaces.map((iface: any) => ({
           classId:       `${repoId}:${f.filePath}:${cls.name}`,
           interfaceName: iface,
           repoId,
